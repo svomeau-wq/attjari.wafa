@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banque - Espace Client</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { DEFAULT: '#d10000', dark: '#a80000', darker: '#8b0000', light: '#fef2f2' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        .nav-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.25rem; color: #64748b; font-weight: 500; cursor: pointer; border-radius: 0.5rem; margin: 0.25rem 0.75rem; transition: all 0.2s; text-decoration: none; font-size: 0.9375rem; }
+        .nav-item:hover { background: #f1f5f9; color: #0f172a; }
+        .nav-item.active { background: #fef2f2; color: #d10000; }
+        .input-field { transition: border-color 0.2s, box-shadow 0.2s; }
+        .input-field:focus { border-color: #d10000; box-shadow: 0 0 0 3px rgba(209,0,0,0.1); outline: none; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .toast-show { animation: slideUp 0.3s ease-out forwards; }
+        .card { background: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; overflow: hidden; }
+        .card-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #e2e8f0; }
+        .card-body { padding: 1.5rem; }
+        table.data-table { width: 100%; border-collapse: collapse; }
+        table.data-table th { text-align: left; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
+        table.data-table td { padding: 0.875rem 1rem; font-size: 0.875rem; color: #334155; border-bottom: 1px solid #f1f5f9; }
+        table.data-table tr:hover { background: #f8fafc; }
+        .badge { display: inline-flex; align-items: center; padding: 0.2rem 0.65rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+        .badge-success { background: #dcfce7; color: #16a34a; }
+        .badge-error { background: #fef2f2; color: #d10000; }
+        .badge-blue { background: #dbeafe; color: #2563eb; }
+        .badge-orange { background: #fff7ed; color: #ea580c; }
+        .btn-primary { background: #d10000; color: white; font-weight: 500; padding: 0.75rem 1.5rem; border-radius: 0.5rem; border: none; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.9375rem; }
+        .btn-primary:hover { background: #a80000; }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-secondary { background: white; color: #334155; font-weight: 500; padding: 0.625rem 1.25rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.875rem; }
+        .btn-secondary:hover { background: #f8fafc; }
+        .virtual-card { position: relative; overflow: hidden; border-radius: 1rem; padding: 1.5rem; aspect-ratio: 1.586/1; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 25px rgba(0,0,0,0.3); max-width: 380px; }
+        .virtual-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+        .virtual-card .overlay { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(0,0,0,0.4), rgba(0,0,0,0.7)); z-index: 1; }
+        .virtual-card .content { position: relative; z-index: 2; color: white; display: flex; flex-direction: column; height: 100%; justify-content: space-between; }
+        .service-card { transition: box-shadow 0.2s, transform 0.1s; }
+        .service-card:hover { box-shadow: 0 10px 25px rgba(0,0,0,0.08); transform: translateY(-2px); }
+    </style>
+</head>
+{# ============================================================ #}
+{# MACRO: Formatage monétaire français (12 450,75)              #}
+{# ============================================================ #}
+{%- macro fmt(value) -%}{{ "{:,.2f}".format(value|float).replace(",", " ").replace(".", ",") }}{%- endmacro -%}
+
+<body class="bg-slate-50 min-h-screen">
+<div class="flex min-h-screen">
+
+    <!-- ==================== BOUTON MENU MOBILE ==================== -->
+    <button id="mobile-menu-btn" class="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg border border-slate-200 shadow-sm" onclick="toggleSidebar()">
+        <i data-lucide="menu" class="w-6 h-6 text-slate-700"></i>
+    </button>
+
+    <!-- ==================== SIDEBAR ==================== -->
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 fixed h-screen z-40 flex flex-col transition-transform duration-300 lg:translate-x-0 -translate-x-full">
+        <!-- Logo -->
+        <div class="p-6 border-b border-slate-200">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-brand rounded-xl flex items-center justify-center">
+                    <i data-lucide="building-2" class="w-5 h-5 text-white"></i>
+                </div>
+                <span class="text-xl font-bold text-slate-900" style="font-family:'Outfit',sans-serif">Attijariwafa Bank</span>
+            </div>
+        </div>
+        <!-- Navigation -->
+        <nav class="flex-1 py-4 overflow-y-auto">
+            <div class="nav-item active" data-section="accueil" onclick="showSection('accueil')"><i data-lucide="home" class="w-5 h-5"></i><span>Accueil</span></div>
+            <div class="nav-item" data-section="releve" onclick="showSection('releve')"><i data-lucide="file-text" class="w-5 h-5"></i><span>Relevé</span></div>
+            <div class="nav-item" data-section="beneficiaires" onclick="showSection('beneficiaires')"><i data-lucide="users" class="w-5 h-5"></i><span>Bénéficiaires</span></div>
+            <div class="nav-item" data-section="virement" onclick="showSection('virement')"><i data-lucide="arrow-right-left" class="w-5 h-5"></i><span>Virement</span></div>
+            <div class="nav-item" data-section="prelevements" onclick="showSection('prelevements')"><i data-lucide="receipt" class="w-5 h-5"></i><span>Prélèvements</span></div>
+            <div class="nav-item" data-section="epargne" onclick="showSection('epargne')"><i data-lucide="piggy-bank" class="w-5 h-5"></i><span>Épargne</span></div>
+            <div class="nav-item" data-section="credits" onclick="showSection('credits')"><i data-lucide="banknote" class="w-5 h-5"></i><span>Crédits</span></div>
+            <div class="nav-item" data-section="assurances" onclick="showSection('assurances')"><i data-lucide="shield" class="w-5 h-5"></i><span>Assurances</span></div>
+            <div class="nav-item" data-section="services" onclick="showSection('services')"><i data-lucide="settings" class="w-5 h-5"></i><span>Services</span></div>
+            <div class="nav-item" data-section="domiciliation" onclick="showSection('domiciliation')"><i data-lucide="building-2" class="w-5 h-5"></i><span>Domiciliation</span></div>
+            <div class="nav-item" data-section="messagerie" onclick="showSection('messagerie')"><i data-lucide="message-square" class="w-5 h-5"></i><span>Messagerie</span></div>
+        </nav>
+        <!-- User + Logout -->
+        <div class="p-4 border-t border-slate-200">
+            <div class="flex items-center gap-3 mb-3 px-2">
+                <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
+                    <span class="text-sm font-semibold text-slate-600">{{ user.prenom[0] }}{{ user.nom[0] }}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-slate-900 truncate">{{ user.prenom }} {{ user.nom }}</p>
+                    <p class="text-xs text-slate-500">{{ user.identifiant }}</p>
+                </div>
+            </div>
+            <a href="{{ url_for('logout') }}" class="nav-item text-red-600 hover:bg-red-50 w-full">
+                <i data-lucide="log-out" class="w-5 h-5"></i><span>Déconnexion</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- ==================== MAIN CONTENT ==================== -->
+    <main class="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8">
+        <div class="max-w-6xl mx-auto">
+            <!-- Header -->
+            <header class="mb-8 flex items-center justify-between">
+                <div class="lg:ml-0 ml-12">
+                    <h1 id="section-title" class="text-2xl font-semibold text-slate-900" style="font-family:'Outfit',sans-serif">Accueil</h1>
+                    <p class="text-slate-500 mt-1">Bienvenue, {{ user.prenom }} {{ user.nom }}</p>
+                </div>
+                <button class="relative p-2 hover:bg-slate-100 rounded-lg transition-colors" onclick="showSection('messagerie')">
+                    <i data-lucide="bell" class="w-5 h-5 text-slate-600"></i>
+                    {% if unread_count > 0 %}
+                    <span class="absolute top-1 right-1 w-2.5 h-2.5 bg-brand rounded-full border-2 border-slate-50"></span>
+                    {% endif %}
+                </button>
+            </header>
+
+            <!-- ========================================= -->
+            <!-- SECTION : ACCUEIL                         -->
+            <!-- ========================================= -->
+            <div id="section-accueil" class="section animate-fade-in">
+                <!-- 4 Cartes stats -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <!-- Compte courant -->
+                    <div class="rounded-xl p-6 text-white" style="background: linear-gradient(135deg, #d10000, #8b0000);">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-sm font-medium" style="color:rgba(255,255,255,.8)">Compte courant</span>
+                            <i data-lucide="wallet" class="w-5 h-5" style="color:rgba(255,255,255,.5)"></i>
+                        </div>
+                        <p class="text-3xl font-light" style="font-family:'Outfit',sans-serif">{{ fmt(user.solde) }} &euro;</p>
+                        <p class="text-sm mt-1" style="color:rgba(255,255,255,.6)">Disponible</p>
+                    </div>
+                    <!-- Épargne totale -->
+                    <div class="card p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-slate-500 text-sm font-medium">Épargne totale</span>
+                            <i data-lucide="piggy-bank" class="w-5 h-5 text-green-500"></i>
+                        </div>
+                        <p class="text-2xl font-semibold text-slate-900">{{ fmt(total_epargne) }} &euro;</p>
+                        <p class="text-green-600 text-sm mt-1 flex items-center gap-1">
+                            <i data-lucide="trending-up" class="w-3 h-3"></i> +3% ce mois
+                        </p>
+                    </div>
+                    <!-- Crédits en cours -->
+                    <div class="card p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-slate-500 text-sm font-medium">Crédits en cours</span>
+                            <i data-lucide="banknote" class="w-5 h-5 text-blue-500"></i>
+                        </div>
+                        <p class="text-2xl font-semibold text-slate-900">{{ fmt(total_credits) }} &euro;</p>
+                        <p class="text-slate-500 text-sm mt-1">{{ credits|length }} crédit(s) actif(s)</p>
+                    </div>
+                    <!-- Carte bancaire -->
+                    <div class="card p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-slate-500 text-sm font-medium">Carte bancaire</span>
+                            <i data-lucide="credit-card" class="w-5 h-5 text-slate-400"></i>
+                        </div>
+                        <p class="text-lg font-mono text-slate-900">{{ user.carte_numero }}</p>
+                        <p class="text-slate-500 text-sm mt-1">Expire {{ user.carte_expiration }}</p>
+                    </div>
+                </div>
+                <!-- Dernières opérations + Carte virtuelle -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 card">
+                        <div class="card-header">
+                            <h3 class="text-lg font-semibold text-slate-900">Dernières opérations</h3>
+                        </div>
+                        <div class="divide-y divide-slate-100">
+                            {% for tx in transactions[:3] %}
+                            <div class="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-full flex items-center justify-center {% if tx.type == 'credit' %}bg-green-100{% else %}bg-red-100{% endif %}">
+                                        {% if tx.type == 'credit' %}
+                                        <i data-lucide="trending-up" class="w-5 h-5 text-green-600"></i>
+                                        {% else %}
+                                        <i data-lucide="arrow-right-left" class="w-5 h-5 text-red-600"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-slate-900 text-sm">{{ tx.operation }}</p>
+                                        <p class="text-xs text-slate-500">{{ tx.date }}</p>
+                                    </div>
+                                </div>
+                                <span class="font-semibold text-sm {% if tx.type == 'credit' %}text-green-600{% else %}text-slate-900{% endif %}">
+                                    {% if tx.montant > 0 %}+{% endif %}{{ fmt(tx.montant) }} &euro;
+                                </span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <!-- Carte virtuelle -->
+                    <div class="card p-0">
+                        <div class="virtual-card">
+                            <img src="https://images.pexels.com/photos/8961886/pexels-photo-8961886.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940" alt="">
+                            <div class="overlay"></div>
+                            <div class="content">
+                                <div class="flex justify-between items-start">
+                                    <span class="text-lg font-bold">Attijariwafa BANK</span>
+                                    <i data-lucide="credit-card" class="w-8 h-8"></i>
+                                </div>
+                                <div>
+                                    <p class="text-lg tracking-widest font-mono mb-3">{{ user.carte_numero }}</p>
+                                    <div class="flex justify-between">
+                                        <div>
+                                            <p class="text-xs" style="color:rgba(255,255,255,.7)">TITULAIRE</p>
+                                            <p class="font-medium text-sm">{{ user.prenom }} {{ user.nom }}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs" style="color:rgba(255,255,255,.7)">EXPIRE</p>
+                                            <p class="font-medium text-sm">{{ user.carte_expiration }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================= -->
+            <!-- SECTION : RELEVÉ                          -->
+            <!-- ========================================= -->
+            <div id="section-releve" class="section hidden">
+                <div class="card animate-fade-in">
+                    <div class="card-header flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                        <div>
+                            <h3 class="text-lg font-semibold text-slate-900">Relevé de compte</h3>
+                            <p class="text-sm text-slate-500 mt-1">Toutes vos opérations bancaires</p>
+                        </div>
+                        <button class="btn-secondary"><i data-lucide="download" class="w-4 h-4"></i>Exporter PDF</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Date</th><th>Opération</th><th>Bénéficiaire</th><th>Référence</th><th>Montant</th><th>Type</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for tx in transactions %}
+                                <tr>
+                                    <td class="whitespace-nowrap">{{ tx.date }}</td>
+                                    <td>{{ tx.operation }}</td>
+                                    <td>{{ tx.beneficiaire or '-' }}</td>
+                                    <td class="font-mono text-xs">{{ tx.reference or '-' }}</td>
+                                    <td class="font-semibold {% if tx.type == 'credit' %}text-green-600{% endif %}">{% if tx.montant > 0 %}+{% endif %}{{ fmt(tx.montant) }} &euro;</td>
+                                    <td><span class="badge {% if tx.type == 'credit' %}badge-success{% else %}badge-error{% endif %}">{% if tx.type == 'credit' %}Crédit{% else %}Débit{% endif %}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================= -->
+            <!-- SECTION : BÉNÉFICIAIRES                   -->
+            <!-- ========================================= -->
+            <div id="section-beneficiaires" class="section hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in">
+                    <!-- Formulaire ajout -->
+                    <div class="card">
+                        <div class="card-header"><h3 class="text-lg font-semibold text-slate-900">Ajouter un bénéficiaire</h3></div>
+                        <div class="card-body">
+                            <form id="form-beneficiaire" onsubmit="addBeneficiaire(event)">
+                                <div class="grid grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Prénom</label>
+                                        <input type="text" id="rib-prenom" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Nom</label>
+                                        <input type="text" id="rib-nom" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm" required>
+                                    </div>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1.5">IBAN</label>
+                                    <input type="text" id="rib-iban" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-mono" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1.5">BIC</label>
+                                    <input type="text" id="rib-bic" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-mono" required>
+                                </div>
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Adresse (optionnel)</label>
+                                    <input type="text" id="rib-adresse" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm">
+                                </div>
+                                <button type="submit" class="btn-primary w-full"><i data-lucide="plus" class="w-5 h-5"></i>Ajouter</button>
+                            </form>
+                        </div>
+                    </div>
+                    <!-- Liste bénéficiaires -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="text-lg font-semibold text-slate-900">Mes bénéficiaires</h3>
+                            <p class="text-sm text-slate-500 mt-1">{{ ribs|length }} enregistré(s)</p>
+                        </div>
+                        <div id="ribs-list" class="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                            {% if ribs|length == 0 %}
+                            <div class="p-6 text-center text-slate-500">
+                                <i data-lucide="users" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i>
+                                <p>Aucun bénéficiaire</p>
+                            </div>
+                            {% else %}
+                            {% for rib in ribs %}
+                            <div class="flex items-start justify-between p-4 hover:bg-slate-50" id="rib-{{ rib.id }}">
+                                <div>
+                                    <p class="font-medium text-slate-900 text-sm">{{ rib.prenom }} {{ rib.nom }}</p>
+                                    <p class="text-sm text-slate-500 font-mono mt-1">{{ rib.iban }}</p>
+                                    <p class="text-xs text-slate-400 font-mono">BIC: {{ rib.bic }}</p>
+                                </div>
+                                <button onclick="deleteBeneficiaire('{{ rib.id }}')" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================= -->
+            <!-- SECTION : VIREMENT                        -->
+            <!-- ========================================= -->
+            <div id="section-virement" class="section hidden">
+                <div class="max-w-2xl animate-fade-in">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="text-lg font-semibold text-slate-900">Effectuer un virement</h3>
+                            <p class="text-sm text-slate-500 mt-1">Confirmation PDF envoyée par email</p>
+                        </div>
+                        <div class="card-body">
+                            <form id="form-virement" onsubmit="doVirement(event)">
+                                {% if ribs|length > 0 %}
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Bénéficiaire existant</label>
+                                    <select id="vir-rib-select" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm bg-white" onchange="onRibSelect(this)">
+                                        <option value="">-- Nouveau bénéficiaire --</option>
+                                        {% for rib in ribs %}
+                                        <option value="{{ rib.id }}" data-prenom="{{ rib.prenom }}" data-nom="{{ rib.nom }}" data-iban="{{ rib.iban }}" data-bic="{{ rib.bic }}" data-adresse="{{ rib.adresse }}">{{ rib.prenom }} {{ rib.nom }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                {% endif %}
+                                <div class="bg-slate-50 p-4 rounded-lg mb-6">
+                                    <h4 class="text-sm font-semibold text-slate-700 mb-4">Bénéficiaire</h4>
+                                    <div class="grid grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-slate-700 mb-1.5">Prénom *</label>
+                                            <input type="text" id="vir-prenom" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm bg-white" required>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-slate-700 mb-1.5">Nom *</label>
+                                            <input type="text" id="vir-nom" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm bg-white" required>
+                                        </div>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-slate-700 mb-1.5">IBAN *</label>
+                                        <input type="text" id="vir-iban" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm bg-white font-mono" required>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-slate-700 mb-1.5">BIC *</label>
+                                        <input type="text" id="vir-bic" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm bg-white font-mono" required>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Adresse</label>
+                                        <input type="text" id="vir-adresse" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm bg-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Email *</label>
+                                        <input type="email" id="vir-email" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm bg-white" required>
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50 p-4 rounded-lg mb-6">
+                                    <h4 class="text-sm font-semibold text-slate-700 mb-4">Détails du virement</h4>
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Montant (&euro;) *</label>
+                                        <input type="number" step="0.01" min="0.01" id="vir-montant" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-lg font-semibold bg-white" required>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Référence</label>
+                                        <input type="text" id="vir-reference" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm bg-white font-mono">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Motif *</label>
+                                        <input type="text" id="vir-motif" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm bg-white" required>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn-primary w-full"><i data-lucide="send" class="w-5 h-5"></i>Effectuer le virement</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================= -->
+            <!-- SECTION : PRÉLÈVEMENTS                    -->
+            <!-- ========================================= -->
+            <div id="section-prelevements" class="section hidden">
+                <div class="animate-fade-in">
+                    {% set actifs = prelevements|selectattr('statut','equalto','actif')|list %}
+                    {% set suspendus = prelevements|selectattr('statut','equalto','suspendu')|list %}
+                    {% set total_mensuel = actifs|sum(attribute='montant') %}
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="card p-6">
+                            <p class="text-slate-500 text-sm">Total mensuel</p>
+                            <p class="text-2xl font-semibold text-slate-900">{{ fmt(total_mensuel) }} &euro;</p>
+                        </div>
+                        <div class="card p-6">
+                            <p class="text-slate-500 text-sm">Prélèvements actifs</p>
+                            <p class="text-2xl font-semibold text-green-600">{{ actifs|length }}</p>
+                        </div>
+                        <div class="card p-6">
+                            <p class="text-slate-500 text-sm">Prélèvements suspendus</p>
+                            <p class="text-2xl font-semibold text-orange-500">{{ suspendus|length }}</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3 class="text-lg font-semibold text-slate-900">Mes prélèvements automatiques</h3></div>
+                        <div class="overflow-x-auto">
+                            <table class="data-table">
+                                <thead>
+                                    <tr><th>Créancier</th><th>Description</th><th>Montant</th><th>Prochaine date</th><th>Fréquence</th><th>Statut</th><th>Action</th></tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in prelevements %}
+                                    <tr id="prel-{{ p.id }}">
+                                        <td class="font-medium">{{ p.creancier }}</td>
+                                        <td class="text-slate-500">{{ p.description }}</td>
+                                        <td class="font-semibold">{{ fmt(p.montant) }} &euro;</td>
+                                        <td>{{ p.date_prochaine }}</td>
+                                        <td>{{ p.frequence }}</td>
+                                        <td><span id="prel-badge-{{ p.id }}" class="badge {% if p.statut == 'actif' %}badge-success{% else %}badge-orange{% endif %}">{% if p.statut == 'actif' %}Actif{% else %}Suspendu{% endif %}</span></td>
+                                        <td>
+                                            <button onclick="togglePrelevement('{{ p.id }}')" class="p-2 rounded-lg transition-colors {% if p.statut == 'actif' %}hover:bg-orange-50 text-orange-500{% else %}hover:bg-green-50 text-green-500{% endif %}" title="{% if p.statut == 'actif' %}Suspendre{% else %}Activer{% endif %}">
+                                                {% if p.statut == 'actif' %}<i data-lucide="pause" class="w-4 h-4"></i>{% else %}<i data-lucide="play" class="w-4 h-4"></i>{% endif %}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================= -->
+            <!-- SECTION : ÉPARGNE                         -->
+            <!-- ========================================= -->
+            <div id="section-epargne" class="section hidden">
+                <div class="animate-fade-in">
+                    {% set total_ep = epargnes|sum(attribute='solde') %}
+                    <div class="card p-6 mb-6" style="background: linear-gradient(90deg, #f0fdf4, #ecfdf5); border-color: #bbf7d0;">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-green-700 text-sm font-medium">Épargne totale</p>
+                                <p class="text-4xl font-light text-green-800" style="font-family:'Outfit',sans-serif">{{ fmt(total_ep) }} &euro;</p>
+                            </div>
+                            <i data-lucide="piggy-bank" class="w-16 h-16 text-green-300"></i>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {% for ep in epargnes %}
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                                            {% if ep.type == 'livret_a' %}<i data-lucide="book-open" class="w-5 h-5 text-blue-500"></i>
+                                            {% elif ep.type == 'ldds' %}<i data-lucide="heart" class="w-5 h-5 text-green-500"></i>
+                                            {% elif ep.type == 'pel' %}<i data-lucide="home" class="w-5 h-5 text-purple-500"></i>
+                                            {% elif ep.type == 'assurance_vie' %}<i data-lucide="shield" class="w-5 h-5 text-amber-500"></i>
+                                            {% else %}<i data-lucide="piggy-bank" class="w-5 h-5 text-slate-500"></i>{% endif %}
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold text-slate-900">{{ ep.nom }}</h4>
+                                            <p class="text-xs text-slate-500">Ouvert le {{ ep.date_ouverture }}</p>
+                                        </div>
+                                    </div>
+                                    <span class="badge badge-success">Actif</span>
+                                </div>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between"><span class="text-slate-500 text-sm">Solde actuel</span><span class="font-semibold text-slate-900">{{ fmt(ep.solde) }} &euro;</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-500 text-sm">Taux</span><span class="font-semibold text-green-600">{{ ep.taux }}%</span></div>
+                                    {% if ep.plafond > 0 %}
+                                    <div class="flex justify-between"><span class="text-slate-500 text-sm">Plafond</span><span class="text-slate-700 text-sm">{{ fmt(ep.plafond) }} &euro;</span></div>
+                                    {% set pct = (ep.solde / ep.plafond * 100) %}
+                                    <div class="w-full bg-slate-100 rounded-full h-2">
+                                        <div class="bg-green-500 h-2 rounded-full" style="width:{{ [pct, 100]|min }}%"></div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================= -->
+            <!-- SECTION : CRÉDITS                         -->
+            <!-- ========================================= -->
+            <div id="section-credits" class="section hidden">
+                <div class="animate-fade-in">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+                        <h3 class="text-lg font-semibold text-slate-900">Mes crédits en cours</h3>
+                        <button class="btn-secondary" onclick="toggleSimulation()"><i data-lucide="calculator" class="w-4 h-4"></i>Simuler un crédit</button>
+                    </div>
+                    <!-- Simulation (hidden by default) -->
+                    <div id="simulation-panel" class="card mb-6 hidden" style="border-color:#bfdbfe; background:rgba(239,246,255,.5)">
+                        <div class="card-header" style="border-color:#bfdbfe"><h4 class="font-semibold text-slate-900">Simulation de crédit</h4></div>
+                        <div class="card-body">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <div><label class="block text-sm font-medium text-slate-700 mb-1.5">Montant (&euro;)</label><input type="number" id="sim-montant" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm" placeholder="50000"></div>
+                                <div><label class="block text-sm font-medium text-slate-700 mb-1.5">Durée (mois)</label><input type="number" id="sim-duree" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm" placeholder="120"></div>
+                                <div><label class="block text-sm font-medium text-slate-700 mb-1.5">Taux (%)</label><input type="number" step="0.1" id="sim-taux" class="input-field w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm" value="3.5"></div>
+                            </div>
+                            <button class="btn-primary" onclick="simulerCredit()">Calculer</button>
+                            <div id="simulation-result" class="mt-6 p-4 bg-white rounded-lg border border-slate-200 hidden">
+                                <h5 class="font-semibold mb-4 text-slate-900">Résultat de la simulation</h5>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div><p class="text-slate-500 text-sm">Mensualité</p><p id="sim-res-mens" class="text-xl font-semibold text-blue-600"></p></div>
+                                    <div><p class="text-slate-500 text-sm">Coût total</p><p id="sim-res-total" class="text-xl font-semibold text-slate-900"></p></div>
+                                    <div><p class="text-slate-500 text-sm">Coût du crédit</p><p id="sim-res-cout" class="text-xl font-semibold text-orange-500"></p></div>
+                                    <div><p class="text-slate-500 text-sm">Taux appliqué</p><p id="sim-res-taux" class="text-xl font-semibold text-slate-900"></p></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Liste crédits -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {% for c in credits %}
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                                            {% if c.type == 'immobilier' %}<i data-lucide="home" class="w-5 h-5 text-blue-500"></i>
+                                            {% elif c.type == 'auto' %}<i data-lucide="car" class="w-5 h-5 text-purple-500"></i>
+                                            {% else %}<i data-lucide="banknote" class="w-5 h-5 text-slate-500"></i>{% endif %}
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold text-slate-900 capitalize">Crédit {{ c.type }}</h4>
+                                            <p class="text-xs text-slate-500">{{ c.date_debut }} &rarr; {{ c.date_fin }}</p>
+                                        </div>
+                                    </div>
+                                    <span class="badge badge-success">En cours</span>
+                                </div>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between"><span class="text-slate-500 text-sm">Montant initial</span><span class="text-slate-700 text-sm">{{ fmt(c.montant_initial) }} &euro;</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-500 text-sm">Capital restant</span><span class="font-semibold text-slate-900">{{ fmt(c.montant_restant) }} &euro;</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-500 text-sm">Mensualité</span><span class="font-semibold text-blue-600">{{ fmt(c.mensualite) }} &euro;</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-500 text-sm">Taux</span><span class="text-slate-700 text-sm">{{ c.taux }}%</span></div>
+                                    {% set elapsed = c.duree_mois - c.mois_restants %}
+                                    <div class="pt-2">
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span class="text-slate-500">Progression</span>
+                                            <span class="text-slate-700">{{ elapsed }}/{{ c.duree_mois }} mois</span>
+                                        </div>
+                                        <div class="w-full bg-slate-100 rounded-full h-2">
+                                            <div class="bg-blue-500 h-2 rounded-full" style="width:{{ (elapsed / c.duree_mois * 100)|round(1) }}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================= -->
+            <!-- SECTION : ASSURANCES                      -->
+            <!-- ========================================= -->
+            <div id="section-assurances" class="section hidden">
+                <div class="animate-fade-in">
+                    {% set total_primes = assurances|sum(attribute='prime_mensuelle') %}
+                    <div class="card p-6 mb-6" style="background: linear-gradient(90deg, #eff6ff, #eef2ff); border-color: #bfdbfe;">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-blue-700 text-sm font-medium">Total primes mensuelles</p>
+                                <p class="text-4xl font-light text-blue-800" style="font-family:'Outfit',sans-serif">{{ fmt(total_primes) }} &euro;</p>
+                            </div>
+                            <i data-lucide="shield" class="w-16 h-16 text-blue-300"></i>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {% for a in assurances %}
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                                            {% if a.type == 'habitation' %}<i data-lucide="home" class="w-5 h-5 text-blue-500"></i>
+                                            {% elif a.type == 'auto' %}<i data-lucide="car" class="w-5 h-5 text-purple-500"></i>
+                                            {% elif a.type == 'vie' %}<i data-lucide="heart" class="w-5 h-5 text-red-500"></i>
+                                            {% elif a.type == 'sante' %}<i data-lucide="shield" class="w-5 h-5 text-green-500"></i>
+                                            {% else %}<i data-lucide="shield" class="w-5 h-5 text-slate-500"></i>{% endif %}
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold text-slate-900">{{ a.nom }}</h4>
+                                            <p class="text-xs text-slate-500 font-mono">N&deg; {{ a.numero_contrat }}</p>
+                                        </div>
+                                    </div>
+                                    <span class="badge badge-success">Actif</span>
+                                </div>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between"><span class="text-slate-500 text-sm">Prime mensuelle</span><span class="font-semibold text-blue-600">{{ fmt(a.prime_mensuelle) }} &euro;</span></div>
+                                    <div><span class="text-slate-500 text-sm">Couverture</span><p class="text-slate-700 text-sm mt-1">{{ a.couverture }}</p></div>
+                                    <div class="flex justify-between pt-2 border-t border-slate-100"><span class="text-slate-500 text-sm">Échéance</span><span class="text-slate-700 text-sm">{{ a.date_echeance }}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================= -->
+            <!-- SECTION : SERVICES                        -->
+            <!-- ========================================= -->
+            <div id="section-services" class="section hidden">
+                <div class="animate-fade-in">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                        {% set service_defs = [
+                            ("chequier", "Commander un chequier", "Recevez un nouveau chequier sous 5 jours ouvres", "book-open"),
+                            ("carte", "Nouvelle carte bancaire", "Commander une nouvelle carte ou un renouvellement", "credit-card"),
+                            ("rib", "Telecharger mon RIB", "Obtenez votre releve d'identite bancaire en PDF", "file-check"),
+                            ("attestation", "Attestation de compte", "Document officiel attestant de votre compte", "file-text"),
+                            ("opposition", "Faire opposition", "Bloquer votre carte en cas de perte ou vol", "alert-circle"),
+                            ("conseiller", "Contacter un conseiller", "Prendre rendez-vous avec votre conseiller", "phone")
+                        ] %}
+                        {% for stype, snom, sdesc, sicon in service_defs %}
+                        <div class="card service-card cursor-pointer" onclick="demanderService('{{ stype }}', '{{ snom }}')">
+                            <div class="card-body text-center">
+                                <div class="w-14 h-14 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                                    <i data-lucide="{{ sicon }}" class="w-7 h-7 text-brand"></i>
+                                </div>
+                                <h4 class="font-semibold text-slate-900 mb-2">{{ snom }}</h4>
+                                <p class="text-sm text-slate-500">{{ sdesc }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if services|length > 0 %}
+                    <div class="card">
+                        <div class="card-header"><h3 class="text-lg font-semibold text-slate-900">Mes demandes récentes</h3></div>
+                        <div class="divide-y divide-slate-100">
+                            {% for s in services %}
+                            <div class="flex items-center justify-between p-4">
+                                <div>
+                                    <p class="font-medium text-slate-900 capitalize text-sm">{{ s.type }}</p>
+                                    <p class="text-sm text-slate-500">{{ s.date_demande }}</p>
+                                </div>
+                                <span class="badge {% if s.statut == 'livre' %}badge-success{% elif s.statut == 'en_cours' %}badge-blue{% else %}bg-slate-100 text-slate-600{% endif %}">
+                                    {% if s.statut == 'livre' %}Livré{% elif s.statut == 'en_cours' %}En cours{% else %}{{ s.statut }}{% endif %}
+                                </span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- ========================================= -->
+            <!-- SECTION : DOMICILIATION                   -->
+            <!-- ========================================= -->
+            <div id="section-domiciliation" class="section hidden">
+                <div class="max-w-3xl animate-fade-in">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Infos personnelles -->
+                        <div class="card">
+                            <div class="card-header"><h3 class="text-lg font-semibold text-slate-900">Informations personnelles</h3></div>
+                            <div class="card-body space-y-4">
+                                {% set infos = [
+                                    ('Titulaire', domiciliation.titulaire),
+                                    ('Email', domiciliation.email),
+                                    ('Adresse', domiciliation.adresse ~ ', ' ~ domiciliation.code_postal ~ ' ' ~ domiciliation.ville),
+                                    ('Pays', domiciliation.pays)
+                                ] %}
+                                {% for label, val in infos %}
+                                <div class="p-3 bg-slate-50 rounded-lg">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{{ label }}</p>
+                                    <p class="font-medium text-slate-900 text-sm">{{ val or '-' }}</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <!-- Coordonnées bancaires -->
+                        <div class="card">
+                            <div class="card-header"><h3 class="text-lg font-semibold text-slate-900">Coordonnées bancaires</h3></div>
+                            <div class="card-body space-y-4">
+                                {% set coords = [
+                                    ('IBAN', domiciliation.iban, true),
+                                    ('BIC', domiciliation.bic, true),
+                                    ('Banque', domiciliation.banque, false),
+                                    ('Agence', domiciliation.agence, false),
+                                    ('Adresse agence', domiciliation.adresse_agence, false)
+                                ] %}
+                                {% for label, val, is_mono in coords %}
+                                <div class="p-3 bg-slate-50 rounded-lg group flex justify-between items-start">
+                                    <div>
+                                        <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{{ label }}</p>
+                                        <p class="font-medium text-slate-900 text-sm {% if is_mono %}font-mono{% endif %}">{{ val or '-' }}</p>
+                                    </div>
+                                    {% if val %}
+                                    <button onclick="copyText('{{ val }}')" class="p-1 text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" title="Copier">
+                                        <i data-lucide="copy" class="w-4 h-4"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 text-center">
+                        <button class="btn-secondary"><i data-lucide="download" class="w-5 h-5"></i>Télécharger mon RIB</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================= -->
+            <!-- SECTION : MESSAGERIE                      -->
+            <!-- ========================================= -->
+            <div id="section-messagerie" class="section hidden">
+                <div class="card animate-fade-in">
+                    <div class="card-header">
+                        <h3 class="text-lg font-semibold text-slate-900">Messagerie</h3>
+                        <p class="text-sm text-slate-500 mt-1">{{ messages|selectattr('lu','equalto',false)|list|length }} non lu(s)</p>
+                    </div>
+                    <div class="divide-y divide-slate-100">
+                        {% if messages|length == 0 %}
+                        <div class="p-6 text-center text-slate-500">
+                            <i data-lucide="message-square" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i>
+                            <p>Aucun message</p>
+                        </div>
+                        {% else %}
+                        {% for msg in messages %}
+                        <div class="p-4 hover:bg-slate-50 cursor-pointer transition-colors {% if not msg.lu %}bg-red-50/50 border-l-4 border-brand{% endif %}" {% if not msg.lu %}onclick="markRead('{{ msg.id }}')"{% endif %} id="msg-{{ msg.id }}">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-medium text-slate-900 text-sm">{{ msg.titre }}</h4>
+                                <span class="text-xs text-slate-500 ml-4 whitespace-nowrap">{{ msg.date }}</span>
+                            </div>
+                            <p class="text-sm text-slate-600">{{ msg.contenu }}</p>
+                            {% if not msg.lu %}<span class="inline-block mt-2 text-xs font-medium text-brand">Non lu</span>{% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<!-- ==================== TOAST ==================== -->
+<div id="toast" class="fixed bottom-6 right-6 bg-white border border-slate-200 rounded-xl shadow-lg px-5 py-3.5 z-50 hidden">
+    <div class="flex items-center gap-2">
+        <i data-lucide="check" id="toast-icon" class="w-5 h-5 text-green-600"></i>
+        <span id="toast-message" class="text-sm font-medium text-slate-700"></span>
+    </div>
+</div>
+
+<!-- ==================== OVERLAY MOBILE ==================== -->
+<div id="sidebar-overlay" class="lg:hidden fixed inset-0 bg-black/50 z-30 hidden" onclick="toggleSidebar()"></div>
+
+<!-- ==================== SCRIPTS ==================== -->
+<script>
+    // Initialiser les icônes Lucide
+    lucide.createIcons();
+
+    // ========== NAVIGATION ==========
+    var sectionTitles = {
+        accueil:'Accueil', releve:'Relevé', beneficiaires:'Bénéficiaires',
+        virement:'Virement', prelevements:'Prélèvements', epargne:'Épargne',
+        credits:'Crédits', assurances:'Assurances', services:'Services',
+        domiciliation:'Domiciliation', messagerie:'Messagerie'
+    };
+
+    function showSection(id) {
+        document.querySelectorAll('.section').forEach(function(s) { s.classList.add('hidden'); });
+        var el = document.getElementById('section-' + id);
+        if (el) { el.classList.remove('hidden'); el.classList.add('animate-fade-in'); }
+        document.querySelectorAll('.nav-item[data-section]').forEach(function(n) { n.classList.remove('active'); });
+        var nav = document.querySelector('.nav-item[data-section="' + id + '"]');
+        if (nav) nav.classList.add('active');
+        document.getElementById('section-title').textContent = sectionTitles[id] || id;
+        closeSidebar();
+    }
+
+    // ========== SIDEBAR MOBILE ==========
+    function toggleSidebar() {
+        var sb = document.getElementById('sidebar');
+        var ov = document.getElementById('sidebar-overlay');
+        sb.classList.toggle('-translate-x-full');
+        ov.classList.toggle('hidden');
+    }
+    function closeSidebar() {
+        if (window.innerWidth < 1024) {
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+            document.getElementById('sidebar-overlay').classList.add('hidden');
+        }
+    }
+
+    // ========== TOAST ==========
+    function showToast(message, type) {
+        var toast = document.getElementById('toast');
+        var icon = document.getElementById('toast-icon');
+        document.getElementById('toast-message').textContent = message;
+        toast.style.borderLeft = (type === 'error') ? '4px solid #d10000' : '4px solid #16a34a';
+        icon.style.color = (type === 'error') ? '#d10000' : '#16a34a';
+        toast.classList.remove('hidden');
+        toast.classList.add('toast-show');
+        setTimeout(function() {
+            toast.classList.add('hidden');
+            toast.classList.remove('toast-show');
+        }, 4000);
+    }
+
+    // ========== COPIER ==========
+    function copyText(text) {
+        navigator.clipboard.writeText(text);
+        showToast('Copié dans le presse-papiers');
+    }
+
+    // ========== MONEY FORMAT JS ==========
+    function fmtMoney(v) {
+        return new Intl.NumberFormat('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}).format(v);
+    }
+
+    // ========== BÉNÉFICIAIRE: AJOUTER ==========
+    function addBeneficiaire(e) {
+        e.preventDefault();
+        var data = {
+            prenom: document.getElementById('rib-prenom').value,
+            nom: document.getElementById('rib-nom').value,
+            iban: document.getElementById('rib-iban').value,
+            bic: document.getElementById('rib-bic').value,
+            adresse: document.getElementById('rib-adresse').value
+        };
+        fetch("{{ url_for('add_beneficiaire') }}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                showToast('Bénéficiaire ajouté avec succès');
+                setTimeout(function() { location.reload(); }, 800);
+            }
+        })
+        .catch(function() { showToast('Erreur lors de l\'ajout', 'error'); });
+    }
+
+    // ========== BÉNÉFICIAIRE: SUPPRIMER ==========
+    function deleteBeneficiaire(id) {
+        fetch("{{ url_for('delete_beneficiaire', id='__ID__') }}".replace('__ID__', id), {
+            method: 'POST'
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                var el = document.getElementById('rib-' + id);
+                if (el) el.remove();
+                showToast('Bénéficiaire supprimé');
+            }
+        })
+        .catch(function() { showToast('Erreur', 'error'); });
+    }
+
+    // ========== VIREMENT: SÉLECTION RIB ==========
+    function onRibSelect(sel) {
+        var opt = sel.options[sel.selectedIndex];
+        if (opt.value) {
+            document.getElementById('vir-prenom').value = opt.dataset.prenom || '';
+            document.getElementById('vir-nom').value = opt.dataset.nom || '';
+            document.getElementById('vir-iban').value = opt.dataset.iban || '';
+            document.getElementById('vir-bic').value = opt.dataset.bic || '';
+            document.getElementById('vir-adresse').value = opt.dataset.adresse || '';
+        }
+    }
+
+    // ========== VIREMENT: EXÉCUTER ==========
+    function doVirement(e) {
+        e.preventDefault();
+        var data = {
+            prenom: document.getElementById('vir-prenom').value,
+            nom: document.getElementById('vir-nom').value,
+            iban: document.getElementById('vir-iban').value,
+            bic: document.getElementById('vir-bic').value,
+            adresse: document.getElementById('vir-adresse').value,
+            email: document.getElementById('vir-email').value,
+            montant: document.getElementById('vir-montant').value,
+            reference: document.getElementById('vir-reference').value,
+            motif: document.getElementById('vir-motif').value
+        };
+        fetch("{{ url_for('virement') }}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                showToast(res.message);
+                setTimeout(function() { location.reload(); }, 1200);
+            }
+        })
+        .catch(function() { showToast('Erreur lors du virement', 'error'); });
+    }
+
+    // ========== PRÉLÈVEMENT: TOGGLE ==========
+    function togglePrelevement(id) {
+        fetch("{{ url_for('toggle_prelevement', id='__ID__') }}".replace('__ID__', id), {
+            method: 'POST'
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                showToast('Prélèvement ' + (res.statut === 'actif' ? 'activé' : 'suspendu'));
+                setTimeout(function() { location.reload(); }, 800);
+            }
+        })
+        .catch(function() { showToast('Erreur', 'error'); });
+    }
+
+    // ========== SERVICE: DEMANDER ==========
+    function demanderService(type, nom) {
+        fetch("{{ url_for('service_demande') }}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({type: type, details: nom})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                showToast('Demande de ' + type + ' enregistrée');
+                setTimeout(function() { location.reload(); }, 800);
+            }
+        })
+        .catch(function() { showToast('Erreur', 'error'); });
+    }
+
+    // ========== MESSAGE: MARQUER LU ==========
+    function markRead(id) {
+        fetch("{{ url_for('mark_read', id='__ID__') }}".replace('__ID__', id), {
+            method: 'POST'
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                var el = document.getElementById('msg-' + id);
+                if (el) {
+                    el.classList.remove('bg-red-50/50', 'border-l-4', 'border-brand');
+                    var nonlu = el.querySelector('.text-brand');
+                    if (nonlu) nonlu.remove();
+                    el.removeAttribute('onclick');
+                }
+            }
+        })
+        .catch(function() {});
+    }
+
+    // ========== CRÉDIT: SIMULATION ==========
+    function toggleSimulation() {
+        document.getElementById('simulation-panel').classList.toggle('hidden');
+    }
+
+    function simulerCredit() {
+        var data = {
+            montant: document.getElementById('sim-montant').value,
+            duree: document.getElementById('sim-duree').value,
+            taux: document.getElementById('sim-taux').value
+        };
+        fetch("{{ url_for('credit_simulation') }}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            document.getElementById('sim-res-mens').textContent = fmtMoney(res.mensualite) + ' €';
+            document.getElementById('sim-res-total').textContent = fmtMoney(res.cout_total) + ' €';
+            document.getElementById('sim-res-cout').textContent = fmtMoney(res.cout_credit) + ' €';
+            document.getElementById('sim-res-taux').textContent = res.taux + '%';
+            document.getElementById('simulation-result').classList.remove('hidden');
+        })
+        .catch(function() { showToast('Erreur de simulation', 'error'); });
+    }
+</script>
+</body>
+</html>
